@@ -1,0 +1,7 @@
+fastapi
+pandas
+gunicorn
+uvicorn
+pyarrow
+requests
+psycopg2

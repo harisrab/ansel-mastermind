@@ -1,3 +1,7 @@
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+
 def balance_elements(data_dict):
     """
     Balance the number of elements in each list in a dictionary.
@@ -32,3 +36,50 @@ def balance_elements(data_dict):
                 data_dict[key].extend([None]*diff)
 
     return data_dict
+
+
+def create_database_for_customer(db_host, db_port, db_user, db_password, db_name):
+    """
+    This function creates a new database for a customer in PostgreSQL.
+
+    Args:
+    db_host (str): The host name of the PostgreSQL server.
+    db_port (int): The port number on which the PostgreSQL server is listening.
+    db_user (str): The username to connect to the PostgreSQL server.
+    db_password (str): The password to connect to the PostgreSQL server.
+    db_name (str): The name of the database to be created.
+    """
+
+    # Print the input values in a nicely formatted manner
+    print(f"Host: {db_host}")
+    print(f"Port: {db_port}")
+    print(f"User: {db_user}")
+    print(f"Password: {db_password}")
+    print(f"Database Name: {db_name}")
+
+    # Connect to PostgreSQL
+    try:
+        connection = psycopg2.connect(
+            host=db_host,
+            port=db_port,
+            user=db_user,
+            password=db_password
+        )
+    except psycopg2.Error as error:
+        print(f"Error while connecting to PostgreSQL: {error}")
+
+    # Set AUTOCOMMIT to create a new database
+    connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+
+    # Create a new cursor object
+    cursor = connection.cursor()
+
+    # SQL query to create a new database
+    create_database_query = f"CREATE DATABASE {db_name};"
+
+    # Execute the query
+    cursor.execute(create_database_query)
+
+    # Close the cursor and connection
+    cursor.close()
+    connection.close()

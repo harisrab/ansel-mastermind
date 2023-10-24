@@ -1,25 +1,71 @@
+import base64
 import os
 
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from helpers import create_database_for_customer
+
+BASE_URL = "http://localhost:8006/v1"
+BASE_URL = "https://api.airbyte.myansel.com/v1"
 
 
-def create_connection(workspaceId, sourceId, destinaionId):
+airbyte_username = "ansel"
+airbyte_password = "44FantasticFox"
+access_key = base64.b64encode(
+    f"{airbyte_username}:{airbyte_password}".encode()).decode()
+print("Access KEy: ", access_key)
+
+
+def sync(connection_id):
+    url = f"{BASE_URL}/jobs"
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Basic {access_key}"
+    }
+
+    payload = {
+        "jobType": "sync",
+        "connectionId": connection_id
+    }
+
+    response = requests.post(url, json=payload, headers=headers).json()
+    print("Syncing: ", response)
+
+
+def create_connection(workspaceId, sourceId, destinaionId, organization_id):
 
     print("\n")
     print("[+] Creating a connection")
-    print(f"Source ID: {sourceId}")
-    print(f"Destination ID: {destinaionId}")
 
-    url = "https://api.airbyte.com/v1/connections"
+    url = f'{BASE_URL}/connections?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0'
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Basic {access_key}"
+    }
+
+    connections_list = requests.get(
+        url, headers=headers).json().get('data', [])
+
+    if len(connections_list) > 0:
+        for each_connection in connections_list:
+            existing_sourceId = each_connection['sourceId']
+            existing_destinationId = each_connection['destinationId']
+
+            if existing_destinationId == destinaionId and existing_sourceId == sourceId:
+                print(f"[+] Connection Already Exists")
+                return each_connection['connectionId']
+
+    # Check if the conenction already exists
+
+    url = f"{BASE_URL}/connections"
 
     payload = {
         "schedule": {"scheduleType": "manual"},
         "dataResidency": "auto",
-        "namespaceDefinition": "destination",
-        "namespaceFormat": None,
+        "namespaceDefinition": "custom_format",
+        "namespaceFormat": "${SOURCE_NAMESPACE}__" + organization_id,
         "nonBreakingSchemaUpdatesBehavior": "ignore",
         "sourceId": sourceId,
         "destinationId": destinaionId
@@ -28,12 +74,15 @@ def create_connection(workspaceId, sourceId, destinaionId):
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     response = requests.post(url, json=payload, headers=headers)
 
     print(response.json())
+    res = response.json().get("connectionId")
+
+    print(res)
 
 
 def create_destination(workspaceId, organization_id, sourceId):
@@ -49,12 +98,13 @@ def create_destination(workspaceId, organization_id, sourceId):
         str: The destinationId of the existing or newly created destination.
     """
     print("\n")
+    print("[+] Creating a PostgreSQL Destination")
 
-    url = f"https://api.airbyte.com/v1/destinations?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
+    url = f"{BASE_URL}/destinations?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
 
     headers = {
         "accept": "application/json",
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     response = requests.get(url, headers=headers)
@@ -68,26 +118,44 @@ def create_destination(workspaceId, organization_id, sourceId):
 
                 return eachDestination.get('destinationId')
 
-    print("[+] Creating a destination")
-    url = "https://api.airbyte.com/v1/destinations"
+    print("[+] Creating a destination ...")
+    url = f"{BASE_URL}/destinations"
+
+    db_host = "ansel.postgres.database.azure.com"
+    db_port = 5432
+    db_user = "harisrab"
+    db_password = "44FantasticFox"
+
+    db_name = f"{organization_id}__db"
 
     payload = {
         "configuration": {
-            "credentials": {"credentials_title": "IAM Role"},
+            "credentials": {
+                "credentials_title": "IAM Role"
+            },
             "region": "",
             "lakeformation_governed_tables": False,
             "format": {
-                "format_type": "Parquet",
+                "format_type": "JSONL",
                 "compression_codec": "UNCOMPRESSED"
             },
             "partitioning": "NO PARTITIONING",
             "glue_catalog_float_as_decimal": False,
-            "destinationType": "s3",
-            "s3_bucket_region": "us-east-1",
-            "access_key_id": "AKIATXDG3RX4OBIE4EO3",
-            "secret_access_key": "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",
-            "s3_bucket_name": "ansel_source_of_truth",
-            "s3_bucket_path": f"{organization_id}/{sourceId}/"
+            "destinationType": "postgres",
+            "schema": "public",
+            "ssl_mode": {
+                "mode": "allow"
+            },
+            "tunnel_method": {
+                "tunnel_method": "NO_TUNNEL"
+            },
+
+            # Pass in the credentials
+            "host": db_host,
+            "port": db_port,
+            "password": db_password,
+            "username": db_user,
+            "database": "ansel"
         },
         "name": f"{organization_id}/{sourceId}",
         "workspaceId": workspaceId
@@ -95,7 +163,7 @@ def create_destination(workspaceId, organization_id, sourceId):
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     response = requests.post(url, json=payload, headers=headers)
@@ -117,6 +185,7 @@ def create_shopify_datasource(password, workspaceId, shop_url):
     Returns:
         None
     """
+    print("\n")
     print(
         f"[+] Creating a Shopify Data Source for {shop_url} in workspaceId {workspaceId}")
 
@@ -124,29 +193,29 @@ def create_shopify_datasource(password, workspaceId, shop_url):
     shop_name = shop_url.split('.')[0]
 
     # Get a list of sources and check if the data source for Shopify Exists or not with the same URL
-    url = f"https://api.airbyte.com/v1/sources?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
+    url = f"{BASE_URL}/sources?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
 
     headers = {
         "accept": "application/json",
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     response = requests.get(url, headers=headers)
     sources_list = response.json().get('data')
 
-    print(f"{response.json()=}")
-    print(f"{sources_list=}")
-
     # Check if the source 'shopify' already exists with the same shop_name
     if sources_list != None:
         for eachSource in sources_list:
             if eachSource.get('sourceType') == 'shopify' and eachSource.get('configuration').get('shop') == shop_name:
+                print("[+] Shopify Source | EXISTS")
                 sourceId = eachSource.get('sourceId')
 
                 return sourceId
 
+    print("[+] Shopify Source | Creating ...")
+
     # Define the URL for the Airbyte sources API
-    url = "https://api.airbyte.com/v1/sources"
+    url = f"{BASE_URL}/sources"
 
     # Define the payload for the POST request
     payload = {
@@ -168,12 +237,14 @@ def create_shopify_datasource(password, workspaceId, shop_url):
         "accept": "application/json",
         "content-type": "application/json",
         # The Airbyte API key
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     # Send the POST request to the Airbyte sources API
     response = requests.post(url, json=payload, headers=headers)
     # Print the response from the API
+
+    print(response.json())
 
     # Get the sourceID
     sourceId = response.json().get('sourceId')
@@ -193,14 +264,19 @@ def create_workspace(organization_id):
     Returns:
         str: The workspaceId of the existing or newly created workspace.
     """
-    url = "https://api.airbyte.com/v1/workspaces"
+    print("[+] Creating a workspace")
+    print(f"[+] Making a request to {BASE_URL}")
+
+    url = f"{BASE_URL}/workspaces"
     headers = {
         "accept": "application/json",
-        "authorization": f"Bearer {os.getenv('AIRBYTE_KEY')}"
+        "authorization": f"Basic {access_key}"
     }
 
     # Fetch existing workspaces
     response = requests.get(url, headers=headers)
+
+    print("Successfully responsded: ", response)
     workspaces = response.json().get('data', [])
 
     # Check if workspace already exists
