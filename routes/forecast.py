@@ -10,4 +10,5 @@ router = APIRouter()
 @router.post("/forecast")
 async def forecast(data: ForecastRequest):
     
+    
     pass

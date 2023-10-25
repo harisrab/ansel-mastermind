@@ -60,7 +60,7 @@ def get_streams(sourceId, destinationId):
 
     pprint(filtered_streams)
 
-    return []
+    return selected_streams
 
 
 def create_connection(workspaceId, sourceId, destinationId, organization_id):
@@ -88,7 +88,7 @@ def create_connection(workspaceId, sourceId, destinationId, organization_id):
                 return each_connection['connectionId']
 
     # Check if the conenction already exists
-    streams = get_streams(sourceId, destinationId, workspaceId)
+    streams = get_streams(sourceId, destinationId)
 
     url = f"{BASE_URL}/connections"
 
