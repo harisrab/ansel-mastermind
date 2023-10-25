@@ -13,6 +13,8 @@ async def create_ds_shopify(data: Data):
     # # Create the workspace if it doesn't already exist in Airbyte
     workspaceId = create_workspace(organization_id)
 
+    return
+
     # 1. Create the data source
     sourceId = create_shopify_datasource(
         password=password,

@@ -46,6 +46,10 @@ app.include_router(forecast.router)
 
 
 
+# Leze's API Token
+# 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
+
+
 
 # Shopify Store URL
 # SHOP_NAME = "Dovetail Workwear"
