@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from models import Data
-from airbyte_helpers import *
+from core.airbyte_helpers import *
 
 router = APIRouter()
 
@@ -12,8 +12,6 @@ async def create_ds_shopify(data: Data):
 
     # # Create the workspace if it doesn't already exist in Airbyte
     workspaceId = create_workspace(organization_id)
-
-    return
 
     # 1. Create the data source
     sourceId = create_shopify_datasource(

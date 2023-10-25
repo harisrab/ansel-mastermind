@@ -1,3 +1,4 @@
+from routes import airbyte, forecast
 import os
 
 import pandas as pd
@@ -7,10 +8,6 @@ import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pyarrow import json
-
-
-from airbyte_helpers import (create_connection, create_destination,
-                             create_shopify_datasource, create_workspace, sync)
 
 app = FastAPI()
 
@@ -38,17 +35,13 @@ def hello():
     }
 
 
-from routes import airbyte, forecast
-
 # All the routes are registered here.
 app.include_router(airbyte.router)
 app.include_router(forecast.router)
 
 
-
 # Leze's API Token
 # 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
-
 
 
 # Shopify Store URL

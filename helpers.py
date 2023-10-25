@@ -1,3 +1,5 @@
+import json
+
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -83,3 +85,68 @@ def create_database_for_customer(db_host, db_port, db_user, db_password, db_name
     # Close the cursor and connection
     cursor.close()
     connection.close()
+
+
+def fetch_data_from_db_for_forecasting(organization_id, host, username, password, database):
+    """
+    Fetch data from a PostgreSQL database for forecasting.
+
+    This function connects to a PostgreSQL database, executes a SQL query to fetch specific fields from a JSON object
+    stored in a column, and then converts the results into a pandas DataFrame.
+
+    Args:
+        host (str): The host name of the PostgreSQL server.
+        username (str): The username to connect to the PostgreSQL server.
+        password (str): The password to connect to the PostgreSQL server.
+        database (str): The name of the database to connect to.
+
+    Returns:
+        df (pandas.DataFrame): A DataFrame containing the fetched data, with columns for 'product_title', 'title',
+                               'ordered_item_quantity', 'variant_title', 'sku', and 'day'. The 'day' column is
+                               converted to the 'YYYY-MM-DD' format.
+    """
+
+
+    # Database connection details
+    host = host
+    username = username
+    password = password
+    database = database
+
+    # Connect to the database
+    conn = psycopg2.connect(host=host, user=username,
+                            password=password, dbname=database)
+    cur = conn.cursor()
+
+    # Transform organization_id into the required format
+    folder_name = "__" + organization_id.replace("-", "_")
+
+    # Execute the query to get the required data
+    cur.execute(f"""
+        SELECT 
+            jsonb_array_elements(_airbyte_data->'line_items')->>'name' as name,
+            jsonb_array_elements(_airbyte_data->'line_items')->>'title' as title,
+            jsonb_array_elements(_airbyte_data->'line_items')->>'quantity' as quantity,
+            jsonb_array_elements(_airbyte_data->'line_items')->>'variant_title' as variant_title,
+            jsonb_array_elements(_airbyte_data->'line_items')->>'sku' as sku,
+            _airbyte_data->'processed_at' as processed_at
+        FROM {folder_name}._airbyte_raw_orders
+    """)
+
+    # Fetch the results as a list of tuples
+    results = [row for row in cur.fetchall()]
+
+    # Convert the list of tuples into a dataframe
+    import pandas as pd
+    df = pd.DataFrame(results, columns=[
+                      'product_title', 'title', 'ordered_item_quantity', 'variant_title', 'sku', 'day'])
+    df['ordered_item_quantity'] = df['ordered_item_quantity'].astype(int)
+
+    df['day'] = pd.to_datetime(df['day']).apply(
+        lambda x: x.strftime('%Y-%m-%d'))
+
+    # Close the database connection
+    cur.close()
+    conn.close()
+
+    return df

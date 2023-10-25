@@ -34,9 +34,10 @@ def sync(connection_id):
     return response.get('jobId', "")
 
 
+from pprint import pprint
+
 import requests
 
-from pprint import pprint
 
 def get_streams(sourceId, destinationId):
     url = f"{BASE_URL}/streams?sourceId={sourceId}&destinationId={destinationId}&ignoreCache=true"
@@ -52,8 +53,9 @@ def get_streams(sourceId, destinationId):
         {"name": "customers", "syncMode": "full_refresh_overwrite"},
         {"name": "inventory_items", "syncMode": "full_refresh_overwrite"},
         {"name": "inventory_levels", "syncMode": "full_refresh_overwrite"},
-        {"name": "locations", "syncMode": "full_refresh_overwrite"},
-        {"name": "products", "syncMode": "full_refresh_overwrite"}
+        {"name": "product_variants", "syncMode": "full_refresh_overwrite"},
+        {"name": "products", "syncMode": "full_refresh_overwrite"},
+        {"name": "transactions", "syncMode": "full_refresh_overwrite"}
     ]
 
     filtered_streams = [stream for stream in response.json() if stream['streamName'] in selected_streams]
@@ -115,7 +117,7 @@ def create_connection(workspaceId, sourceId, destinationId, organization_id):
 
     res = response.json().get("connectionId")
 
-    print(res)
+    print(f"[+] Connection established with connectionId {res}")
 
     return res
 
