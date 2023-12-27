@@ -35,7 +35,7 @@ def balance_elements(data_dict):
         if isinstance(value, list):
             diff = max_length - len(value)
             if diff > 0:
-                data_dict[key].extend([None]*diff)
+                data_dict[key].extend([None] * diff)
 
     return data_dict
 
@@ -62,10 +62,7 @@ def create_database_for_customer(db_host, db_port, db_user, db_password, db_name
     # Connect to PostgreSQL
     try:
         connection = psycopg2.connect(
-            host=db_host,
-            port=db_port,
-            user=db_user,
-            password=db_password
+            host=db_host, port=db_port, user=db_user, password=db_password
         )
     except psycopg2.Error as error:
         print(f"Error while connecting to PostgreSQL: {error}")
@@ -87,7 +84,9 @@ def create_database_for_customer(db_host, db_port, db_user, db_password, db_name
     connection.close()
 
 
-def fetch_data_from_db_for_forecasting(organization_id, host, username, password, database):
+def fetch_data_from_db_for_forecasting(
+    organization_id, host, username, password, database
+):
     """
     Fetch data from a PostgreSQL database for forecasting.
 
@@ -106,7 +105,6 @@ def fetch_data_from_db_for_forecasting(organization_id, host, username, password
                                converted to the 'YYYY-MM-DD' format.
     """
 
-
     # Database connection details
     host = host
     username = username
@@ -114,15 +112,17 @@ def fetch_data_from_db_for_forecasting(organization_id, host, username, password
     database = database
 
     # Connect to the database
-    conn = psycopg2.connect(host=host, user=username,
-                            password=password, dbname=database)
+    conn = psycopg2.connect(
+        host=host, user=username, password=password, dbname=database
+    )
     cur = conn.cursor()
 
     # Transform organization_id into the required format
     folder_name = "__" + organization_id.replace("-", "_")
 
     # Execute the query to get the required data
-    cur.execute(f"""
+    cur.execute(
+        f"""
         SELECT 
             jsonb_array_elements(_airbyte_data->'line_items')->>'name' as name,
             jsonb_array_elements(_airbyte_data->'line_items')->>'title' as title,
@@ -131,19 +131,29 @@ def fetch_data_from_db_for_forecasting(organization_id, host, username, password
             jsonb_array_elements(_airbyte_data->'line_items')->>'sku' as sku,
             _airbyte_data->'processed_at' as processed_at
         FROM {folder_name}._airbyte_raw_orders
-    """)
+    """
+    )
 
     # Fetch the results as a list of tuples
     results = [row for row in cur.fetchall()]
 
     # Convert the list of tuples into a dataframe
     import pandas as pd
-    df = pd.DataFrame(results, columns=[
-                      'product_title', 'title', 'ordered_item_quantity', 'variant_title', 'sku', 'day'])
-    df['ordered_item_quantity'] = df['ordered_item_quantity'].astype(int)
 
-    df['day'] = pd.to_datetime(df['day']).apply(
-        lambda x: x.strftime('%Y-%m-%d'))
+    df = pd.DataFrame(
+        results,
+        columns=[
+            "product_title",
+            "title",
+            "ordered_item_quantity",
+            "variant_title",
+            "sku",
+            "day",
+        ],
+    )
+    df["ordered_item_quantity"] = df["ordered_item_quantity"].astype(int)
+
+    df["day"] = pd.to_datetime(df["day"]).apply(lambda x: x.strftime("%Y-%m-%d"))
 
     # Close the database connection
     cur.close()

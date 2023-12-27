@@ -1,4 +1,5 @@
 from routes import airbyte, forecast
+from routes import dashboard
 import os
 
 import pandas as pd
@@ -8,6 +9,8 @@ import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pyarrow import json
+from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_cache import FastAPICache
 
 app = FastAPI()
 
@@ -16,7 +19,7 @@ origins = [
     "https://localhost.tiangolo.com",
     "http://localhost",
     "http://localhost:8080",
-    "*"
+    "*",
 ]
 
 app.add_middleware(
@@ -27,17 +30,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup():
+    # redis = aioredis.from_url("redis://localhost")
+    FastAPICache.init(InMemoryBackend())
 
-@app.get('/')
+@app.get("/")
 def hello():
-    return {
-        "message": "Hello World"
-    }
+    return {"message": "Hello World"}
 
 
 # All the routes are registered here.
 app.include_router(airbyte.router)
 app.include_router(forecast.router)
+app.include_router(dashboard.dashboard_router)
 
 
 # Leze's API Token

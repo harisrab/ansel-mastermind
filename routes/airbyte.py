@@ -4,6 +4,7 @@ from core.airbyte_helpers import *
 
 router = APIRouter()
 
+
 @router.post("/create_ds_shopify")
 async def create_ds_shopify(data: Data):
     password = data.password
@@ -25,9 +26,12 @@ async def create_ds_shopify(data: Data):
 
     # Create a connection and move the data
     connectionId = create_connection(
-        workspaceId, sourceId, destinationId, organization_id)
+        workspaceId, sourceId, destinationId, organization_id
+    )
 
-    print(f"Access admin panel → https://admin.airbyte.myansel.com/workspaces/{workspaceId}")
+    print(
+        f"Access admin panel → https://admin.airbyte.myansel.com/workspaces/{workspaceId}"
+    )
 
     # Run the job to sync the connection that has been created
     sync(connectionId)

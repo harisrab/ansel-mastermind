@@ -12,7 +12,8 @@ BASE_URL = "https://api.airbyte.myansel.com/v1"
 airbyte_username = "ansel"
 airbyte_password = "44FantasticFox"
 access_key = base64.b64encode(
-    f"{airbyte_username}:{airbyte_password}".encode()).decode()
+    f"{airbyte_username}:{airbyte_password}".encode()
+).decode()
 print("Access KEy: ", access_key)
 
 
@@ -21,17 +22,14 @@ def sync(connection_id):
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Basic {access_key}"
+        "authorization": f"Basic {access_key}",
     }
 
-    payload = {
-        "jobType": "sync",
-        "connectionId": connection_id
-    }
+    payload = {"jobType": "sync", "connectionId": connection_id}
 
     response = requests.post(url, json=payload, headers=headers).json()
-    
-    return response.get('jobId', "")
+
+    return response.get("jobId", "")
 
 
 from pprint import pprint
@@ -41,13 +39,10 @@ import requests
 
 def get_streams(sourceId, destinationId):
     url = f"{BASE_URL}/streams?sourceId={sourceId}&destinationId={destinationId}&ignoreCache=true"
-    headers = {
-        "accept": "application/json", 
-        "authorization": f"Basic {access_key}"      
-    }
+    headers = {"accept": "application/json", "authorization": f"Basic {access_key}"}
 
     response = requests.get(url, headers=headers)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+
     selected_streams = [
         {"name": "orders", "syncMode": "full_refresh_overwrite"},
         {"name": "customers", "syncMode": "full_refresh_overwrite"},
@@ -55,10 +50,12 @@ def get_streams(sourceId, destinationId):
         {"name": "inventory_levels", "syncMode": "full_refresh_overwrite"},
         {"name": "product_variants", "syncMode": "full_refresh_overwrite"},
         {"name": "products", "syncMode": "full_refresh_overwrite"},
-        {"name": "transactions", "syncMode": "full_refresh_overwrite"}
+        {"name": "transactions", "syncMode": "full_refresh_overwrite"},
     ]
 
-    filtered_streams = [stream for stream in response.json() if stream['streamName'] in selected_streams]
+    filtered_streams = [
+        stream for stream in response.json() if stream["streamName"] in selected_streams
+    ]
 
     pprint(filtered_streams)
 
@@ -70,24 +67,26 @@ def create_connection(workspaceId, sourceId, destinationId, organization_id):
     print("\n")
     print("[+] Creating a connection")
 
-    url = f'{BASE_URL}/connections?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0'
+    url = f"{BASE_URL}/connections?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Basic {access_key}"
+        "authorization": f"Basic {access_key}",
     }
 
-    connections_list = requests.get(
-        url, headers=headers).json().get('data', [])
+    connections_list = requests.get(url, headers=headers).json().get("data", [])
 
     if len(connections_list) > 0:
         for each_connection in connections_list:
-            existing_sourceId = each_connection['sourceId']
-            existing_destinationId = each_connection['destinationId']
+            existing_sourceId = each_connection["sourceId"]
+            existing_destinationId = each_connection["destinationId"]
 
-            if existing_destinationId == destinationId and existing_sourceId == sourceId:
+            if (
+                existing_destinationId == destinationId
+                and existing_sourceId == sourceId
+            ):
                 print(f"[+] Connection Already Exists")
-                return each_connection['connectionId']
+                return each_connection["connectionId"]
 
     # Check if the conenction already exists
     streams = get_streams(sourceId, destinationId)
@@ -102,15 +101,13 @@ def create_connection(workspaceId, sourceId, destinationId, organization_id):
         "nonBreakingSchemaUpdatesBehavior": "ignore",
         "sourceId": sourceId,
         "destinationId": destinationId,
-        "configurations": {
-            "streams": streams
-        }
+        "configurations": {"streams": streams},
     }
 
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Basic {access_key}"
+        "authorization": f"Basic {access_key}",
     }
 
     response = requests.post(url, json=payload, headers=headers)
@@ -139,23 +136,20 @@ def create_destination(workspaceId, organization_id, sourceId):
 
     url = f"{BASE_URL}/destinations?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
 
-    headers = {
-        "accept": "application/json",
-        "authorization": f"Basic {access_key}"
-    }
+    headers = {"accept": "application/json", "authorization": f"Basic {access_key}"}
 
     response = requests.get(url, headers=headers)
 
     if response.json() != {}:
-        destinations = response.json().get('data')
+        destinations = response.json().get("data")
         for eachDestination in destinations:
-            if eachDestination.get('name') == f"{organization_id}/{sourceId}":
+            if eachDestination.get("name") == f"{organization_id}/{sourceId}":
                 print(
-                    f"[+] The Destination Already Exists for {organization_id}/{sourceId}")
-                destinationId = eachDestination.get('destinationId')
+                    f"[+] The Destination Already Exists for {organization_id}/{sourceId}"
+                )
+                destinationId = eachDestination.get("destinationId")
 
-
-                print(f'[+] DestinationID: {destinationId}')
+                print(f"[+] DestinationID: {destinationId}")
                 return destinationId
 
     print("[+] Creating a destination ...")
@@ -170,46 +164,36 @@ def create_destination(workspaceId, organization_id, sourceId):
 
     payload = {
         "configuration": {
-            "credentials": {
-                "credentials_title": "IAM Role"
-            },
+            "credentials": {"credentials_title": "IAM Role"},
             "region": "",
             "lakeformation_governed_tables": False,
-            "format": {
-                "format_type": "JSONL",
-                "compression_codec": "UNCOMPRESSED"
-            },
+            "format": {"format_type": "JSONL", "compression_codec": "UNCOMPRESSED"},
             "partitioning": "NO PARTITIONING",
             "glue_catalog_float_as_decimal": False,
             "destinationType": "postgres",
             "schema": "public",
-            "ssl_mode": {
-                "mode": "allow"
-            },
-            "tunnel_method": {
-                "tunnel_method": "NO_TUNNEL"
-            },
-
+            "ssl_mode": {"mode": "allow"},
+            "tunnel_method": {"tunnel_method": "NO_TUNNEL"},
             # Pass in the credentials
             "host": db_host,
             "port": db_port,
             "password": db_password,
             "username": db_user,
-            "database": "ansel"
+            "database": "ansel",
         },
         "name": f"{organization_id}/{sourceId}",
-        "workspaceId": workspaceId
+        "workspaceId": workspaceId,
     }
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": f"Basic {access_key}"
+        "authorization": f"Basic {access_key}",
     }
 
     response = requests.post(url, json=payload, headers=headers)
 
-    destinationId = response.json().get('destinationId')
-    print(f'[+] DestinationID: {destinationId}')
+    destinationId = response.json().get("destinationId")
+    print(f"[+] DestinationID: {destinationId}")
 
     return destinationId
 
@@ -228,30 +212,30 @@ def create_shopify_datasource(password, workspaceId, shop_url):
     """
     print("\n")
     print(
-        f"[+] Creating a Shopify Data Source for {shop_url} in workspaceId {workspaceId}")
+        f"[+] Creating a Shopify Data Source for {shop_url} in workspaceId {workspaceId}"
+    )
 
     # Convert quickstart-fbfc8d49.myshopify.com → quickstart-fbfc8d49
-    shop_name = shop_url.split('.')[0]
+    shop_name = shop_url.split(".")[0]
 
     # Get a list of sources and check if the data source for Shopify Exists or not with the same URL
     url = f"{BASE_URL}/sources?workspaceIds={workspaceId}&includeDeleted=false&limit=20&offset=0"
 
-    headers = {
-        "accept": "application/json",
-        "authorization": f"Basic {access_key}"
-    }
+    headers = {"accept": "application/json", "authorization": f"Basic {access_key}"}
 
     response = requests.get(url, headers=headers)
-    sources_list = response.json().get('data')
+    sources_list = response.json().get("data")
 
     # Check if the source 'shopify' already exists with the same shop_name
     if sources_list != None:
         for eachSource in sources_list:
-            if eachSource.get('sourceType') == 'shopify' and eachSource.get('configuration').get('shop') == shop_name:
+            if (
+                eachSource.get("sourceType") == "shopify"
+                and eachSource.get("configuration").get("shop") == shop_name
+            ):
                 print("[+] Shopify Source | EXISTS")
-                sourceId = eachSource.get('sourceId')
-                print(f'[+] SourceId: {sourceId}')
-
+                sourceId = eachSource.get("sourceId")
+                print(f"[+] SourceId: {sourceId}")
 
                 return sourceId
 
@@ -266,13 +250,13 @@ def create_shopify_datasource(password, workspaceId, shop_url):
             "sourceType": "shopify",  # The type of the data source
             "credentials": {
                 "auth_method": "api_password",  # The authentication method
-                "api_password": password  # The API password
+                "api_password": password,  # The API password
             },
             # The name of the Shopify store
-            "shop": f"{shop_name}"
+            "shop": f"{shop_name}",
         },
         "name": "Shopify",  # The name of the data source
-        "workspaceId": workspaceId  # The ID of the workspace
+        "workspaceId": workspaceId,  # The ID of the workspace
     }
 
     # Define the headers for the POST request
@@ -280,7 +264,7 @@ def create_shopify_datasource(password, workspaceId, shop_url):
         "accept": "application/json",
         "content-type": "application/json",
         # The Airbyte API key
-        "authorization": f"Basic {access_key}"
+        "authorization": f"Basic {access_key}",
     }
 
     # Send the POST request to the Airbyte sources API
@@ -290,8 +274,8 @@ def create_shopify_datasource(password, workspaceId, shop_url):
     print(response.json())
 
     # Get the sourceID
-    sourceId = response.json().get('sourceId')
-    print(f'[+] SourceId: {sourceId}')
+    sourceId = response.json().get("sourceId")
+    print(f"[+] SourceId: {sourceId}")
 
     return sourceId
 
@@ -312,23 +296,21 @@ def create_workspace(organization_id):
     print(f"[+] Making a request to {BASE_URL}")
 
     url = f"{BASE_URL}/workspaces"
-    headers = {
-        "accept": "application/json",
-        "authorization": f"Basic {access_key}"
-    }
+    headers = {"accept": "application/json", "authorization": f"Basic {access_key}"}
 
     # Fetch existing workspaces
     response = requests.get(url, headers=headers)
 
     print("Successfully responsded: ", response)
-    workspaces = response.json().get('data', [])
+    workspaces = response.json().get("data", [])
 
     # Check if workspace already exists
     for workspace in workspaces:
-        if workspace['name'] == organization_id:
+        if workspace["name"] == organization_id:
             print(
-                f"[+] Workspace {organization_id} already exists with workspaceId as {workspace['workspaceId']}")
-            return workspace['workspaceId']
+                f"[+] Workspace {organization_id} already exists with workspaceId as {workspace['workspaceId']}"
+            )
+            return workspace["workspaceId"]
 
     # If workspace does not exist, create a new one
     print(f"Workspace {organization_id} does not exist.")
@@ -340,4 +322,4 @@ def create_workspace(organization_id):
     response = requests.post(url, json=payload, headers=headers)
     print("Response from creating: ", response.json())
 
-    return response.json().get('workspaceId')
+    return response.json().get("workspaceId")

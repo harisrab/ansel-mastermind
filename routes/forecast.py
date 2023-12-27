@@ -32,12 +32,15 @@ async def forecast(data: ForecastRequest):
     # Equivalent to data recieved from sales_order.csv directly downloaded from Shopify
     # Given the organization_id -> dataframe (name, title, quantity, variant_title, sku, day)
     df = fetch_data_from_db_for_forecasting(
-        organization_id, host, username, password, database)
+        organization_id, host, username, password, database
+    )
 
     # print(df)
 
     # Get forecast on all the products and saved.
-    products = generate_forecast_on_all(df, bucketing_duration='weekly', organization_id=organization_id)
+    products = generate_forecast_on_all(
+        df, bucketing_duration="weekly", organization_id=organization_id
+    )
 
     print(products[0])
 
