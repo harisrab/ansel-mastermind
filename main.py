@@ -9,8 +9,8 @@ import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pyarrow import json
-from fastapi_cache.backends.inmemory import InMemoryBackend
-from fastapi_cache import FastAPICache
+# from fastapi_cache.backends.inmemory import InMemoryBackend
+# from fastapi_cache import FastAPICache
 
 app = FastAPI()
 
@@ -30,10 +30,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup():
-    # redis = aioredis.from_url("redis://localhost")
-    FastAPICache.init(InMemoryBackend())
+# @app.on_event("startup")
+# async def startup():
+#     # redis = aioredis.from_url("redis://localhost")
+#     FastAPICache.init(InMemoryBackend())
 
 @app.get("/")
 def hello():
