@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 
 import duckdb
 from fastapi import APIRouter, Depends
-from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import Response

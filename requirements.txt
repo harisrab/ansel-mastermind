@@ -6,3 +6,5 @@ pyarrow
 requests
 psycopg2
 duckdb==0.9.2
+tqdm
+fastapi-cache
