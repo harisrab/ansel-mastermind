@@ -37,7 +37,7 @@ app.add_middleware(
 
 @app.get("/")
 def hello():
-    return {"message": "Hello World"}
+    return {"message": "Hello World, this just updated itself."}
 
 
 # All the routes are registered here.
