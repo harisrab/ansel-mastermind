@@ -78,7 +78,7 @@ class TimeSpan(BaseModel):
     
 class ChartData(BaseModel):
     bucketing: str
-    selectedProduct: str
+    selectedProduct: int
     forecast_period: str
     timespan: TimeSpan
 
@@ -114,6 +114,7 @@ def request_key_builder(
 @dashboard_router.post("/dashboard/get_chart_data")
 # @cache(namespace="test", expire=120, key_builder=request_key_builder)
 async def get_chart_data(chart_data: ChartData):
+    print("Getting Chart Data")
     import time
     start_time_total = time.time()
 
@@ -197,7 +198,7 @@ async def get_chart_data(chart_data: ChartData):
     #     attribution_sources = {key: 0 for key in json.loads(attributed_marketing_sales[0]['source'].replace("'", '"')).keys()}
 
     def mapping(x):
-        print(f"{x['day']=}")
+        # print(f"{x['day']=}")
 
         if len(x['day']) == 10:  # Date is in 'YYYY-MM-DD' format
             x['day'] = datetime.strptime(x['day'], "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -234,10 +235,10 @@ async def get_chart_data(chart_data: ChartData):
         print('==> ', each)
         print('\n')
 
-    keys_to_exclude = ['ordered_item_quantity', 'date', 'total_quantity', 'product_id', 'order_id', 'type', 'frequency']
+    keys_to_exclude = ['ordered_item_quantity', 'date', 'product_id', 'order_id', 'type', 'frequency']
     source_keys = [key for key in data[0].keys() if key not in keys_to_exclude]
 
-    print(source_keys)
+    # print(source_keys)
 
     # end_time_total = time.time()
     # print(f"Total Execution Time: {end_time_total - start_time_total} seconds")
