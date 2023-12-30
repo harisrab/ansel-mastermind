@@ -60,13 +60,17 @@ async def get_products(req: Request):
 
     products_list_formatted.sort(key=lambda x: x.get('total_quantity', 0), reverse=True)
 
-    for each in products_list_formatted:
+    amended_products_list = [
+        {**product, 'tags': product.get('tags', []) + ['all']} for product in products_list_formatted
+    ]
+
+    for each in amended_products_list:
         print(each['total_quantity'])
 
     end_time = time.time()
     print(f"Execution time: {end_time - start_time} seconds")
 
-    return products_list_formatted
+    return amended_products_list
 
 from datetime import datetime
 
