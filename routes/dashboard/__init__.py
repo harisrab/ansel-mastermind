@@ -14,12 +14,12 @@ dashboard_router = APIRouter()
 @dashboard_router.post("/dashboard/get_products")
 async def get_products(req: Request):
     import time
+    print('[+] Fetching Products')
 
     body = await req.json()
     organization_id = body.get("organization_id")
 
     start_time = time.time()
-    print("[+] Organization_ID: ", organization_id)
 
     cmd = """
     INSTALL httpfs;
@@ -64,8 +64,7 @@ async def get_products(req: Request):
         {**product, 'tags': product.get('tags', []) + ['all']} for product in products_list_formatted
     ]
 
-    for each in amended_products_list:
-        print(each['total_quantity'])
+
 
     end_time = time.time()
     print(f"Execution time: {end_time - start_time} seconds")
@@ -118,7 +117,7 @@ def request_key_builder(
 @dashboard_router.post("/dashboard/get_chart_data")
 # @cache(namespace="test", expire=120, key_builder=request_key_builder)
 async def get_chart_data(chart_data: ChartData):
-    print("Getting Chart Data")
+    print(f"[+] Fetching Chart Data for {int(chart_data.selectedProduct)}")
     import time
     start_time_total = time.time()
 
@@ -249,10 +248,12 @@ async def get_chart_data(chart_data: ChartData):
 
     return data, source_keys
 
+import json
+import re
 
 
 @dashboard_router.post("/dashboard/get_campaign_breakdown")
-async def get_chart_data(chart_data: ChartData):
+async def get_campaign_data(chart_data: ChartData):
     import time
     start_time_total = time.time()
 
@@ -266,6 +267,8 @@ async def get_chart_data(chart_data: ChartData):
     current_time = datetime.now(timezone.utc)
 
     print('\n')
+    print("Data for Campaign Breakdown")
+    print('---------------------------')
     print("Bucketing:", bucketing)
     print("Forecast Period:", forecast_period)
     print("Selected Product:", selectedProduct)
@@ -274,9 +277,12 @@ async def get_chart_data(chart_data: ChartData):
     print("Current Time: ", current_time)
     print('\n')
 
+
+    con = duckdb.connect('md:my_db?motherduck_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoiaGFyaXMubXlhbnNlbC5jb20iLCJlbWFpbCI6ImhhcmlzQG15YW5zZWwuY29tIiwidXNlcklkIjoiNmVjZTNjNjItNTZlMS00NjExLWExYjQtODA4OTMxZTU0Nzc3IiwiaWF0IjoxNzAzMjU3MDA0LCJleHAiOjE3MzQ4MTQ2MDR9.PDH_SYX8Y3jkKCfZ-9HLvS3vzd2wovjfN-f6aKdE7GM') 
+
     cmd = f"""
-    INSTALL httpfs;
-    LOAD httpfs;
+    -- INSTALL httpfs;
+    -- LOAD httpfs;
 
     SET s3_region='us-east-1';
     
@@ -285,9 +291,9 @@ async def get_chart_data(chart_data: ChartData):
     
     SELECT 
         *
-    FROM read_parquet('/Users/harisrab/ansel/brain/ansel-mastermind/attributed_demand_forecast.parquet') 
+    FROM campaign_breakdown 
     WHERE product_id = {selectedProduct}
-    AND bucketing = '{bucketing}'
+    AND frequency = '{bucketing}'
     """
 
     time_format = "%Y-%m-%d"
@@ -307,68 +313,49 @@ async def get_chart_data(chart_data: ChartData):
     import pandas as pd
 
     start_time_query = time.time()
-    table = duckdb.query(cmd).df()
+    table = con.sql(cmd).df()
     print("Time taken for query: {:.2f} seconds".format(time.time() - start_time_query))
 
-    start_time_processing = time.time()
-    demand_rows = table[table['type'] == 'Demand']
-    forecast_rows = table[table['type'] == 'Forecast'].head(forecast_period)
-
-    table = pd.concat([demand_rows, forecast_rows])
-    print("Time taken for processing: {:.2f} seconds".format(time.time() - start_time_processing))
-
-    # Format this table into a list of graph_data objects.
 
     print(table)
+    timeBucketsOfCampaigns = list(table['campaigns_contribution'].tolist())
     
+    all_campaigns = {}
 
-    import json
-
-    # Flatten the 'source' column which contains JSON into separate columns
-    start_time_flatten = time.time()
-    attributed_marketing_sales = table.to_dict(orient='records')
-    print("Time taken to flatten data: {:.2f} seconds".format(time.time() - start_time_flatten))
-
-    print('=> ', attributed_marketing_sales)
-
-    # for eachDate in attributed_marketing_sales:
-
-    campaigns = []
-
-    if (attributed_marketing_sales[0]['campaign_name'] != ""):
-        campaigns = {key: 0 for key in json.loads(attributed_marketing_sales[0]['campaign_name'].replace("'", '"')).keys()}
-
-    print('Campaigns ==> ', campaigns)
-
-    def mapping(x):
-        if bucketing == 'Monthly':
-            formatted_date = x['day'].strftime('%b %y')
-        else:
-            formatted_date = x['day'].strftime(time_format)
-
-
-        campaign_name = json.loads(x['campaign_name'].replace("'", '"'))
-        campaign_name.pop('not_available', None)
-
-
-        chart_data = {
-            'date': formatted_date,
-            'total_quantity': x['ordered_item_quantity'],
-            'type': x['type'],
-            **campaign_name
-        }
-
+    for eachTime in timeBucketsOfCampaigns:
+        eachTime = json.loads(eachTime)
         
+        for eachSource in eachTime.keys():
+            if eachSource not in all_campaigns:
+                all_campaigns[eachSource] = {}
 
-        return chart_data
+            for eachCampaign in eachTime[eachSource].keys():
+                if eachCampaign not in all_campaigns[eachSource]:
+                    all_campaigns[eachSource][eachCampaign] = 0
 
-    start_time_mapping = time.time()
-    data = list(map(mapping, attributed_marketing_sales))
-    print("Time taken for mapping: {:.2f} seconds".format(time.time() - start_time_mapping))
+                all_campaigns[eachSource][eachCampaign] += eachTime[eachSource][eachCampaign]
 
-    for each in data:
-        print('==> ', each)
-        print('\n')
+    # Convert all_campaigns to the desired structure
+    formatted_campaigns = []
+    for source, campaigns in all_campaigns.items():
+        source_name_parts = source.split('__')
+        source_name = ' | '.join(' '.join(part.upper() if part == 'sms' else part.title() for part in subpart.split('_')) for subpart in source_name_parts)
 
-    print("Total time taken: {:.2f} seconds".format(time.time() - start_time_total))
-    return data
+        formatted_source = {'source': source_name, 'campaigns': []}
+        
+        for campaign_name, contribution in campaigns.items():
+            
+            # Generate a simplified ID by removing special characters and spaces
+            campaign_id = re.sub(r'[^a-zA-Z0-9]+', '', campaign_name).lower()
+            formatted_campaign = {
+                'id': campaign_id,
+                'title': campaign_name,
+                'contribution': contribution
+            }
+            formatted_source['campaigns'].append(formatted_campaign)
+        formatted_campaigns.append(formatted_source)
+
+    print(json.dumps(formatted_campaigns, indent=2))
+
+    
+    return formatted_campaigns
